@@ -1,0 +1,26 @@
+{
+	"schemaVersion": 1,
+	"id": "diceyheights",
+	"version": "${version}",
+	"name": "Dicey Heights",
+	"description": "A dynamic randomized fighting minigame for Minecraft.",
+	"authors": [
+		"haykam821"
+	],
+	"contact": {
+		"homepage": "https://github.com/haykam821/Dicey-Heights#readme",
+		"issues": "https://github.com/haykam821/Dicey-Heights/issues",
+		"sources": "https://github.com/haykam821/Dicey-Heights"
+	},
+	"entrypoints": {
+		"main": [
+			"io.github.haykam821.diceyheights.DiceyHeights"
+		]
+	},
+	"license": "MIT",
+	"depends": {
+		"fabricloader": ">=0.4.0",
+		"java": ">=17",
+		"plasmid": "*"
+	}
+}
