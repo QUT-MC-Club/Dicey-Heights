@@ -4,7 +4,7 @@ import io.github.haykam821.diceyheights.game.DiceyHeightsConfig;
 import io.github.haykam821.diceyheights.game.phase.DiceyHeightsWaitingPhase;
 import net.fabricmc.api.ModInitializer;
 import net.minecraft.util.Identifier;
-import xyz.nucleoid.plasmid.game.GameType;
+import xyz.nucleoid.plasmid.api.game.GameType;
 
 public class DiceyHeights implements ModInitializer {
 	private static final String MOD_ID = "diceyheights";
@@ -18,6 +18,6 @@ public class DiceyHeights implements ModInitializer {
 	}
 
 	public static Identifier identifier(String path) {
-		return new Identifier(MOD_ID, path);
+		return Identifier.of(MOD_ID, path);
 	}
 }

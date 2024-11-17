@@ -1,0 +1,25 @@
+{
+	"type": "diceyheights:dicey_heights",
+	"icon": "minecraft:dispenser",
+	"teams": [
+		{
+			"key": "red",
+			"color": "red",
+			"collision": "pushOtherTeams"
+		},
+		{
+			"key": "blue",
+			"color": "blue",
+			"collision": "pushOtherTeams"
+		}
+	],
+	"item_spawn_strategy": "at_pillar_when_alive",
+	"item_count": 16,
+	"ticks_until_first_item": 60,
+	"ticks_until_next_item": 120,
+	"players": {
+		"min": 1,
+		"max": 32,
+		"threshold": 2
+	}
+}

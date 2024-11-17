@@ -30,7 +30,6 @@ import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
-import net.minecraft.util.ActionResult;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.MathHelper;
@@ -38,23 +37,26 @@ import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.intprovider.IntProvider;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.GameMode;
-import xyz.nucleoid.plasmid.game.GameActivity;
-import xyz.nucleoid.plasmid.game.GameCloseReason;
-import xyz.nucleoid.plasmid.game.GameSpace;
-import xyz.nucleoid.plasmid.game.common.team.GameTeam;
-import xyz.nucleoid.plasmid.game.common.team.GameTeamConfig;
-import xyz.nucleoid.plasmid.game.common.team.GameTeamKey;
-import xyz.nucleoid.plasmid.game.common.team.TeamChat;
-import xyz.nucleoid.plasmid.game.common.team.TeamManager;
-import xyz.nucleoid.plasmid.game.common.team.TeamSelectionLobby;
-import xyz.nucleoid.plasmid.game.event.GameActivityEvents;
-import xyz.nucleoid.plasmid.game.event.GamePlayerEvents;
-import xyz.nucleoid.plasmid.game.player.PlayerOffer;
-import xyz.nucleoid.plasmid.game.player.PlayerOfferResult;
-import xyz.nucleoid.plasmid.game.rule.GameRuleType;
+import xyz.nucleoid.plasmid.api.game.GameActivity;
+import xyz.nucleoid.plasmid.api.game.GameCloseReason;
+import xyz.nucleoid.plasmid.api.game.GameSpace;
+import xyz.nucleoid.plasmid.api.game.common.team.GameTeam;
+import xyz.nucleoid.plasmid.api.game.common.team.GameTeamConfig;
+import xyz.nucleoid.plasmid.api.game.common.team.GameTeamKey;
+import xyz.nucleoid.plasmid.api.game.common.team.TeamChat;
+import xyz.nucleoid.plasmid.api.game.common.team.TeamManager;
+import xyz.nucleoid.plasmid.api.game.common.team.TeamSelectionLobby;
+import xyz.nucleoid.plasmid.api.game.event.GameActivityEvents;
+import xyz.nucleoid.plasmid.api.game.event.GamePlayerEvents;
+import xyz.nucleoid.plasmid.api.game.player.JoinAcceptor;
+import xyz.nucleoid.plasmid.api.game.player.JoinAcceptorResult;
+import xyz.nucleoid.plasmid.api.game.player.JoinOffer;
+import xyz.nucleoid.plasmid.api.game.player.PlayerSet;
+import xyz.nucleoid.plasmid.api.game.rule.GameRuleType;
+import xyz.nucleoid.stimuli.event.EventResult;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 
-public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameActivityEvents.Tick, GamePlayerEvents.Offer, GamePlayerEvents.Remove, PlayerDeathEvent {
+public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameActivityEvents.Tick, GamePlayerEvents.Accept, GamePlayerEvents.Remove, PlayerDeathEvent {
 	private final GameSpace gameSpace;
 	private final Random random;
 	private final ServerWorld world;
@@ -81,7 +83,9 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 		this.map = map;
 		this.config = config;
 
-		List<ServerPlayerEntity> shuffledPlayers = this.gameSpace.getPlayers().stream().collect(Collectors.toCollection(ArrayList::new));
+		PlayerSet participants = this.gameSpace.getPlayers().participants();
+
+		List<ServerPlayerEntity> shuffledPlayers = participants.stream().collect(Collectors.toCollection(ArrayList::new));
 		Util.shuffle(shuffledPlayers, this.random);
 
 		this.players = new ArrayList<>(shuffledPlayers.size());
@@ -93,7 +97,7 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 		Map<GameTeamKey, TeamEntry> keysToTeams = new HashMap<>();
 
 		maybeTeamSelection.ifPresent(teamSelection -> {
-			teamSelection.allocate(this.gameSpace.getPlayers(), (key, player) -> {
+			teamSelection.allocate(participants, (key, player) -> {
 				playersToTeams.put(player.getUuid(), key);
 				maybeTeamManager.get().addPlayerTo(player, key);
 			});
@@ -120,7 +124,7 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 
 		this.items = this.config.items().orElseGet(() -> {
 			List<RegistryEntry.Reference<Item>> items = this.world.getRegistryManager()
-				.get(RegistryKeys.ITEM)
+				.getOrThrow(RegistryKeys.ITEM)
 				.streamEntries()
 				.filter(this::isItemEnabled)
 				.toList();
@@ -173,7 +177,8 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 			// Listeners
 			activity.listen(GameActivityEvents.ENABLE, phase);
 			activity.listen(GameActivityEvents.TICK, phase);
-			activity.listen(GamePlayerEvents.OFFER, phase);
+			activity.listen(GamePlayerEvents.ACCEPT, phase);
+			activity.listen(GamePlayerEvents.OFFER, JoinOffer::accept);
 			activity.listen(GamePlayerEvents.REMOVE, phase);
 			activity.listen(PlayerDeathEvent.EVENT, phase);
 		});
@@ -209,7 +214,7 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 
 			if (player != null) {
 				if (player.getY() > (DiceyHeightsMap.START_Y + this.config.mapConfig().maxHeight())) {
-					player.damage(this.world.getDamageSources().outOfWorld(), 1);
+					player.damage(this.world, this.world.getDamageSources().outOfWorld(), 1);
 				} else if (map.isOutOfBounds(player)) {
 					this.eliminate(entry);
 				}
@@ -236,9 +241,9 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 	}
 
 	@Override
-	public PlayerOfferResult onOfferPlayer(PlayerOffer offer) {
-		return offer.accept(this.world, this.map.getWaitingSpawnPos()).and(() -> {
-			offer.player().changeGameMode(GameMode.SPECTATOR);
+	public JoinAcceptorResult onAcceptPlayers(JoinAcceptor acceptor) {
+		return acceptor.teleport(this.world, this.map.getWaitingSpawnPos()).thenRunForEach(player -> {
+			player.changeGameMode(GameMode.SPECTATOR);
 		});
 	}
 
@@ -248,9 +253,9 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 	}
 
 	@Override
-	public ActionResult onDeath(ServerPlayerEntity player, DamageSource source) {
+	public EventResult onDeath(ServerPlayerEntity player, DamageSource source) {
 		this.eliminate(this.getPlayerEntry(player));
-		return ActionResult.FAIL;
+		return EventResult.DENY;
 	}
 
 	// Utilities

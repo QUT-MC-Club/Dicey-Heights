@@ -4,22 +4,26 @@
 	"teams": [
 		{
 			"key": "red",
-			"name": {
-				"translate": "color.minecraft.red"
-			},
 			"color": "red",
 			"collision": "pushOtherTeams"
 		},
 		{
+			"key": "green",
+			"color": "green",
+			"collision": "pushOtherTeams"
+		},
+		{
 			"key": "blue",
-			"name": {
-				"translate": "color.minecraft.blue"
-			},
 			"color": "blue",
+			"collision": "pushOtherTeams"
+		},
+		{
+			"key": "yellow",
+			"color": "yellow",
 			"collision": "pushOtherTeams"
 		}
 	],
-	"item_spawn_strategy": "at_pillar_when_alive",
+	"separate": true,
 	"players": {
 		"min": 1,
 		"max": 32,
