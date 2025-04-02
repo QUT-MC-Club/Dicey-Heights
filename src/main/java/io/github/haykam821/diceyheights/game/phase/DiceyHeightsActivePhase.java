@@ -28,6 +28,7 @@ import net.minecraft.network.packet.s2c.play.WorldBorderInitializeS2CPacket;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.entry.RegistryEntryList;
+import net.minecraft.registry.tag.ItemTags;
 import net.minecraft.server.command.WorldBorderCommand;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -47,6 +48,7 @@ import net.minecraft.util.math.random.Random;
 import net.minecraft.world.GameMode;
 import net.minecraft.world.border.WorldBorder;
 import org.apache.commons.lang3.math.Fraction;
+import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
@@ -266,9 +268,14 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 		});
 	}
 
-	private EventResult onFluidPlace(ServerWorld serverWorld, BlockPos pos, @Nullable ServerPlayerEntity player, @Nullable BlockHitResult blockHitResult) {
+	private EventResult onFluidPlace(ServerWorld serverWorld, BlockPos pos, ServerPlayerEntity player, @Nullable BlockHitResult blockHitResult) {
 		if (pos.getY() >= (DiceyHeightsMap.START_Y + this.config.mapConfig().maxHeight())) {
 			if (player != null) player.sendMessage(Text.translatable("text.diceyheights.border").formatted(Formatting.RED, Formatting.BOLD), false);
+			return EventResult.DENY;
+		}
+
+		if (isBlockingPillarSpawner(player, pos)) {
+			if (player != null) player.sendMessage(Text.translatable("text.diceyheights.blocking_spawner").formatted(Formatting.RED, Formatting.BOLD), false);
 			return EventResult.DENY;
 		}
 
@@ -289,6 +296,12 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 			return EventResult.DENY;
 		}
 
+		if (isBlockingPillarSpawner(player, pos)) {
+			player.networkHandler.sendPacket(new ScreenHandlerSlotUpdateS2CPacket(-2, 0, slot, context.getStack()));
+			player.sendMessage(Text.translatable("text.diceyheights.blocking_spawner").formatted(Formatting.RED, Formatting.BOLD), false);
+			return EventResult.DENY;
+		}
+
 		return EventResult.PASS;
 	}
 
@@ -304,6 +317,17 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 	}
 
 	// Utilities
+
+	public boolean isBlockingPillarSpawner(ServerPlayerEntity player, BlockPos pos) {
+		if (!getPlayerEntry(player).isPillarApplicable(this.config.itemSpawnStrategy())) {
+			return false;
+		}
+
+		Vec3d pillarPos = getPlayerEntry(player).getPillarPos();
+		return pos.getY() <= pillarPos.getY() + 2
+				&& pos.getX() == pillarPos.getX() - 0.5
+				&& pos.getZ() == pillarPos.getZ() - 0.5;
+	}
 
 	private boolean isItemEnabled(RegistryEntry<Item> entry) {
 		if (entry.getKey().isPresent() && !entry.getKey().get().getValue().getNamespace().equals(Identifier.DEFAULT_NAMESPACE)) {
@@ -324,64 +348,35 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 		ItemSpawnStrategy strategy = this.config.itemSpawnStrategy();
 		int itemRolls = this.config.itemRolls().get(this.random);
 
-		Item[] bundleColors = {
-				Items.BUNDLE,
-				Items.WHITE_BUNDLE,
-				Items.ORANGE_BUNDLE,
-				Items.MAGENTA_BUNDLE,
-				Items.LIGHT_BLUE_BUNDLE,
-				Items.YELLOW_BUNDLE,
-				Items.LIME_BUNDLE,
-				Items.PINK_BUNDLE,
-				Items.GRAY_BUNDLE,
-				Items.LIGHT_GRAY_BUNDLE,
-				Items.CYAN_BUNDLE,
-				Items.PURPLE_BUNDLE,
-				Items.BLUE_BUNDLE,
-				Items.BROWN_BUNDLE,
-				Items.GREEN_BUNDLE,
-				Items.RED_BUNDLE,
-				Items.BLACK_BUNDLE
-		};
-
 		for (int roll = 0; roll < itemRolls; roll += 1) {
 			if (this.config.separate()) {
 				for (PlayerEntry player : this.players) {
 					player.giveItemStack(this.world, strategy, () -> this.getRandomItem()
-                        .map(entry -> {
-                            int count = this.config.itemCount().get(this.random);
-                            return new ItemStack(entry, count);
-                        })
+                        .map(this::getItemStack)
                         .orElse(ItemStack.EMPTY));
 				}
 			} else {
 				this.getRandomItem().ifPresent(entry -> {
 					for (PlayerEntry player : this.players) {
-						player.giveItemStack(this.world, strategy, () -> {
-							int count = this.config.itemCount().get(this.random);
-							var ItemStack = new ItemStack(entry, count);
-							if (ItemStack.isStackable()) {
-								return ItemStack;
-							} else {
-								Item randomBundleColor = bundleColors[this.random.nextInt(bundleColors.length)];
-
-								var bundleStack = new ItemStack(randomBundleColor, 1);
-								BundleContentsComponent.Builder builder = new BundleContentsComponent.Builder(BundleContentsComponent.DEFAULT);
-
-								for (int i = 0; i < count; i++) {
-									ItemStack stack = new ItemStack(entry);
-									builder.add(stack);
-								}
-
-								bundleStack.set(DataComponentTypes.BUNDLE_CONTENTS, builder.build());
-
-								return bundleStack;
-							}
-						});
+						player.giveItemStack(this.world, strategy, () -> getItemStack(entry));
 					}
 				});
 			}
 		}
+	}
+
+	@NotNull
+	private ItemStack getItemStack(@NotNull RegistryEntry<Item> entry) {
+		int count = this.config.itemCount().get(this.random);
+		var ItemStack = new ItemStack(entry, count);
+		if (!ItemStack.isStackable() && count > 1 && !ItemStack.isIn(ItemTags.BUNDLES)) {
+			ItemStack.set(DataComponentTypes.MAX_STACK_SIZE, count);
+		}
+		// Bundles can be used to dupe, this forces stack size and amount to 1
+		if (ItemStack.isIn(ItemTags.BUNDLES)) {
+			ItemStack.setCount(1);
+		}
+		return ItemStack;
 	}
 
 	private Optional<RegistryEntry<Item>> getRandomItem() {

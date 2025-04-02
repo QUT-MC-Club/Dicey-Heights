@@ -141,7 +141,7 @@ public class PlayerEntry {
 		this.attributes.clear();
 	}
 
-	private boolean isPillarApplicable(ItemSpawnStrategy strategy) {
+	public boolean isPillarApplicable(ItemSpawnStrategy strategy) {
 		if (strategy == ItemSpawnStrategy.AT_PILLAR) return true;
 		if (strategy == ItemSpawnStrategy.AT_PILLAR_WHEN_ALIVE && this.alivePlayer != null) return true;
 

@@ -17,9 +17,6 @@
 			"io.github.haykam821.diceyheights.DiceyHeights"
 		]
 	},
-	"mixins": [
-		"diceyheights.mixins.json"
-	],
 	"license": "MIT",
 	"depends": {
 		"fabricloader": ">=0.4.0",
