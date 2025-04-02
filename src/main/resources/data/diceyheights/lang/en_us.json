@@ -27,5 +27,6 @@
 	"text.diceyheights.eliminated": "%s has been eliminated!",
 	"text.diceyheights.no_winners": "Nobody won the game!",
 	"text.diceyheights.win": "%s has won the game!",
-	"text.diceyheights.win.team": "The %s team has won the game!"
+	"text.diceyheights.win.team": "The %s team has won the game!",
+	"text.diceyheights.border": "Height Limit Reached"
 }

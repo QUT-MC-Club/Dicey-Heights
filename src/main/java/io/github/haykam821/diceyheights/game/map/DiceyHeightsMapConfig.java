@@ -24,7 +24,7 @@ public record DiceyHeightsMapConfig(
 		ConstantIntProvider.create(12),
 		ConstantIntProvider.create(24),
 		BlockStateProvider.of(Blocks.BEDROCK),
-		44
+		64
 	);
 
 	public static final Codec<DiceyHeightsMapConfig> CODEC = RecordCodecBuilder.create(instance -> {

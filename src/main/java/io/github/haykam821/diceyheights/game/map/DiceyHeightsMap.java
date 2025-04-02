@@ -51,6 +51,12 @@ public class DiceyHeightsMap {
 		}
 	}
 
+	public void createWorldBorder(ServerWorld world, Random random) {
+		world.getWorldBorder().setCenter(0,0);
+		int maxDiameter = 2*(this.radius + this.config.maxHeight());
+		world.getWorldBorder().setSize(maxDiameter);
+	}
+
 	/**
 	 * Determines the position of a player's pillar for a given angle.
 	 * @param angle the angle of the pillar in radians

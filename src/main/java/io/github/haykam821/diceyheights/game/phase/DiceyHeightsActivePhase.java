@@ -17,26 +17,37 @@ import io.github.haykam821.diceyheights.game.win.FreeForAllWinManager;
 import io.github.haykam821.diceyheights.game.win.TeamWinManager;
 import io.github.haykam821.diceyheights.game.win.WinManager;
 import io.github.haykam821.diceyheights.game.win.WinResult;
+import net.minecraft.block.BlockState;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.BundleContentsComponent;
 import net.minecraft.entity.damage.DamageSource;
-import net.minecraft.item.AirBlockItem;
-import net.minecraft.item.Item;
-import net.minecraft.item.ItemStack;
-import net.minecraft.item.OperatorOnlyBlockItem;
+import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.item.*;
+import net.minecraft.network.packet.s2c.play.ScreenHandlerSlotUpdateS2CPacket;
+import net.minecraft.network.packet.s2c.play.WorldBorderInitializeS2CPacket;
 import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.registry.entry.RegistryEntryList;
+import net.minecraft.server.command.WorldBorderCommand;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
+import net.minecraft.util.Formatting;
+import net.minecraft.util.Hand;
 import net.minecraft.util.Identifier;
 import net.minecraft.util.Util;
+import net.minecraft.util.hit.BlockHitResult;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.MathHelper;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.intprovider.IntProvider;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.GameMode;
+import net.minecraft.world.border.WorldBorder;
+import org.apache.commons.lang3.math.Fraction;
+import org.jetbrains.annotations.Nullable;
 import xyz.nucleoid.plasmid.api.game.GameActivity;
 import xyz.nucleoid.plasmid.api.game.GameCloseReason;
 import xyz.nucleoid.plasmid.api.game.GameSpace;
@@ -54,6 +65,8 @@ import xyz.nucleoid.plasmid.api.game.player.JoinOffer;
 import xyz.nucleoid.plasmid.api.game.player.PlayerSet;
 import xyz.nucleoid.plasmid.api.game.rule.GameRuleType;
 import xyz.nucleoid.stimuli.event.EventResult;
+import xyz.nucleoid.stimuli.event.block.BlockPlaceEvent;
+import xyz.nucleoid.stimuli.event.block.FluidPlaceEvent;
 import xyz.nucleoid.stimuli.event.player.PlayerDeathEvent;
 
 public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameActivityEvents.Tick, GamePlayerEvents.Accept, GamePlayerEvents.Remove, PlayerDeathEvent {
@@ -175,6 +188,8 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 			DiceyHeightsActivePhase.setRules(activity, true);
 
 			// Listeners
+			activity.listen(BlockPlaceEvent.BEFORE, phase::onPlaceBlock);
+			activity.listen(FluidPlaceEvent.EVENT, phase::onFluidPlace);
 			activity.listen(GameActivityEvents.ENABLE, phase);
 			activity.listen(GameActivityEvents.TICK, phase);
 			activity.listen(GamePlayerEvents.ACCEPT, phase);
@@ -189,6 +204,12 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 	@Override
 	public void onEnable() {
 		this.map.removeWaitingPlatform(this.world);
+
+		this.map.createWorldBorder(this.world, random);
+
+		for (ServerPlayerEntity player : world.getPlayers()) {
+			player.networkHandler.sendPacket(new WorldBorderInitializeS2CPacket(world.getWorldBorder()));
+		}
 
 		for (PlayerEntry player : this.players) {
 			player.spawn(this.map, this.world, this.random, this.ticksUntilNextItem);
@@ -213,9 +234,7 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 			ServerPlayerEntity player = entry.getAlivePlayer();
 
 			if (player != null) {
-				if (player.getY() > (DiceyHeightsMap.START_Y + this.config.mapConfig().maxHeight())) {
-					player.damage(this.world, this.world.getDamageSources().outOfWorld(), 1);
-				} else if (map.isOutOfBounds(player)) {
+				if (map.isOutOfBounds(player)) {
 					this.eliminate(entry);
 				}
 			}
@@ -245,6 +264,32 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 		return acceptor.teleport(this.world, this.map.getWaitingSpawnPos()).thenRunForEach(player -> {
 			player.changeGameMode(GameMode.SPECTATOR);
 		});
+	}
+
+	private EventResult onFluidPlace(ServerWorld serverWorld, BlockPos pos, @Nullable ServerPlayerEntity player, @Nullable BlockHitResult blockHitResult) {
+		if (pos.getY() >= (DiceyHeightsMap.START_Y + this.config.mapConfig().maxHeight())) {
+			if (player != null) player.sendMessage(Text.translatable("text.diceyheights.border").formatted(Formatting.RED, Formatting.BOLD), false);
+			return EventResult.DENY;
+		}
+
+		return EventResult.PASS;
+	}
+
+	private EventResult onPlaceBlock(ServerPlayerEntity player, ServerWorld world, BlockPos pos, BlockState state, ItemUsageContext context) {
+		int slot;
+		if (context.getHand() == Hand.MAIN_HAND) {
+			slot = player.getInventory().selectedSlot;
+		} else {
+			slot = 40; // offhand
+		}
+
+		if (pos.getY() >= (DiceyHeightsMap.START_Y + this.config.mapConfig().maxHeight())) {
+			player.networkHandler.sendPacket(new ScreenHandlerSlotUpdateS2CPacket(-2, 0, slot, context.getStack()));
+			player.sendMessage(Text.translatable("text.diceyheights.border").formatted(Formatting.RED, Formatting.BOLD), false);
+			return EventResult.DENY;
+		}
+
+		return EventResult.PASS;
 	}
 
 	@Override
@@ -279,24 +324,59 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 		ItemSpawnStrategy strategy = this.config.itemSpawnStrategy();
 		int itemRolls = this.config.itemRolls().get(this.random);
 
+		Item[] bundleColors = {
+				Items.BUNDLE,
+				Items.WHITE_BUNDLE,
+				Items.ORANGE_BUNDLE,
+				Items.MAGENTA_BUNDLE,
+				Items.LIGHT_BLUE_BUNDLE,
+				Items.YELLOW_BUNDLE,
+				Items.LIME_BUNDLE,
+				Items.PINK_BUNDLE,
+				Items.GRAY_BUNDLE,
+				Items.LIGHT_GRAY_BUNDLE,
+				Items.CYAN_BUNDLE,
+				Items.PURPLE_BUNDLE,
+				Items.BLUE_BUNDLE,
+				Items.BROWN_BUNDLE,
+				Items.GREEN_BUNDLE,
+				Items.RED_BUNDLE,
+				Items.BLACK_BUNDLE
+		};
+
 		for (int roll = 0; roll < itemRolls; roll += 1) {
 			if (this.config.separate()) {
 				for (PlayerEntry player : this.players) {
-					player.giveItemStack(this.world, strategy, () -> {
-						return this.getRandomItem()
-							.map(entry -> {
-								int count = this.config.itemCount().get(this.random);
-								return new ItemStack(entry, count);
-							})
-							.orElse(ItemStack.EMPTY);
-					});
+					player.giveItemStack(this.world, strategy, () -> this.getRandomItem()
+                        .map(entry -> {
+                            int count = this.config.itemCount().get(this.random);
+                            return new ItemStack(entry, count);
+                        })
+                        .orElse(ItemStack.EMPTY));
 				}
 			} else {
 				this.getRandomItem().ifPresent(entry -> {
 					for (PlayerEntry player : this.players) {
 						player.giveItemStack(this.world, strategy, () -> {
 							int count = this.config.itemCount().get(this.random);
-							return new ItemStack(entry, count);
+							var ItemStack = new ItemStack(entry, count);
+							if (ItemStack.isStackable()) {
+								return ItemStack;
+							} else {
+								Item randomBundleColor = bundleColors[this.random.nextInt(bundleColors.length)];
+
+								var bundleStack = new ItemStack(randomBundleColor, 1);
+								BundleContentsComponent.Builder builder = new BundleContentsComponent.Builder(BundleContentsComponent.DEFAULT);
+
+								for (int i = 0; i < count; i++) {
+									ItemStack stack = new ItemStack(entry);
+									builder.add(stack);
+								}
+
+								bundleStack.set(DataComponentTypes.BUNDLE_CONTENTS, builder.build());
+
+								return bundleStack;
+							}
 						});
 					}
 				});
