@@ -22,7 +22,7 @@ public record DiceyHeightsMapConfig(
 		ConstantIntProvider.create(24),
 		BlockStateProvider.of(Blocks.MAGENTA_CONCRETE),
 		ConstantIntProvider.create(12),
-		ConstantIntProvider.create(24),
+		ConstantIntProvider.create(32),
 		BlockStateProvider.of(Blocks.BEDROCK),
 		64
 	);
