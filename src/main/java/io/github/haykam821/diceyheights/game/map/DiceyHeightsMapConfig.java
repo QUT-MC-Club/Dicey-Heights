@@ -18,8 +18,8 @@ public record DiceyHeightsMapConfig(
 	int maxHeight
 ) {
 	public static final DiceyHeightsMapConfig DEFAULT = new DiceyHeightsMapConfig(
-		ConstantIntProvider.create(5),
-		ConstantIntProvider.create(24),
+		ConstantIntProvider.create(10),
+		ConstantIntProvider.create(32),
 		BlockStateProvider.of(Blocks.MAGENTA_CONCRETE),
 		ConstantIntProvider.create(12),
 		ConstantIntProvider.create(32),
