@@ -169,7 +169,7 @@ public class PlayerEntry {
 
 		for (Leashable entity : leashEntities) {
 			if (entity.isLeashed() && entity.getLeashHolder() == this.alivePlayer) {
-				entity.detachLeash(true, true);
+				entity.detachLeash();
 			}
 		}
 	}
