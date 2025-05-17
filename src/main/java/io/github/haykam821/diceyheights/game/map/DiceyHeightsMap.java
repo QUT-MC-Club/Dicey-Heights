@@ -1,5 +1,7 @@
 package io.github.haykam821.diceyheights.game.map;
 
+import java.util.Set;
+
 import io.github.haykam821.diceyheights.game.player.PlayerEntry;
 import net.minecraft.block.BlockState;
 import net.minecraft.server.MinecraftServer;
@@ -12,7 +14,7 @@ import net.minecraft.util.math.random.Random;
 import net.minecraft.world.gen.chunk.ChunkGenerator;
 import xyz.nucleoid.map_templates.BlockBounds;
 import xyz.nucleoid.map_templates.MapTemplate;
-import xyz.nucleoid.plasmid.game.world.generator.TemplateChunkGenerator;
+import xyz.nucleoid.plasmid.api.game.world.generator.TemplateChunkGenerator;
 
 public class DiceyHeightsMap {
 	private final DiceyHeightsMapConfig config;
@@ -96,7 +98,7 @@ public class DiceyHeightsMap {
 	}
 
 	public void teleportToWaitingSpawn(ServerPlayerEntity player) {
-		player.teleport(player.getServerWorld(), this.getWaitingSpawnPos().getX(), this.getWaitingSpawnPos().getY(), this.getWaitingSpawnPos().getZ(), 0, 0);
+		player.teleport(player.getServerWorld(), this.getWaitingSpawnPos().getX(), this.getWaitingSpawnPos().getY(), this.getWaitingSpawnPos().getZ(), Set.of(), 0, 0, true);
 	}
 
 	public boolean isOutOfBounds(ServerPlayerEntity player) {

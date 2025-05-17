@@ -1,41 +1,51 @@
 package io.github.haykam821.diceyheights.game.player;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Supplier;
 
 import com.google.common.collect.ImmutableSet;
 
+import io.github.haykam821.diceyheights.DiceyHeights;
 import io.github.haykam821.diceyheights.game.ItemSpawnStrategy;
 import io.github.haykam821.diceyheights.game.map.DiceyHeightsMap;
 import net.minecraft.block.Blocks;
 import net.minecraft.entity.ItemEntity;
-import net.minecraft.entity.effect.StatusEffectInstance;
-import net.minecraft.entity.effect.StatusEffects;
-import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.entity.Leashable;
+import net.minecraft.entity.attribute.EntityAttribute;
+import net.minecraft.entity.attribute.EntityAttributeModifier;
+import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.player.PlayerPosition;
 import net.minecraft.item.ItemStack;
+import net.minecraft.item.LeadItem;
 import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.particle.BlockStateParticleEffect;
 import net.minecraft.particle.ParticleEffect;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import net.minecraft.util.math.Box;
+import net.minecraft.util.Identifier;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.util.math.random.Random;
 import net.minecraft.world.GameMode;
-import xyz.nucleoid.plasmid.util.InventoryUtil;
+import xyz.nucleoid.plasmid.api.util.InventoryUtil;
 
 public class PlayerEntry {
+	private static final Identifier FREEZE_ID = DiceyHeights.identifier("freeze");
+
 	private ServerPlayerEntity alivePlayer;
 
 	private final TeamEntry team;
 
 	private final Vec3d pillarPos;
 	private final float pillarYaw;
+
+	private final Set<RegistryEntry<EntityAttribute>> attributes = new HashSet<>();
 
 	public PlayerEntry(ServerPlayerEntity player, TeamEntry team, Vec3d pillarPos, float pillarYaw) {
 		this.alivePlayer = player;
@@ -71,12 +81,14 @@ public class PlayerEntry {
 		this.reset(GameMode.SURVIVAL);
 		this.teleportToPillar(world, true);
 
-		this.alivePlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.SLOWNESS, ticksUntilNextItem, 127, true, false));
-		this.alivePlayer.addStatusEffect(new StatusEffectInstance(StatusEffects.JUMP_BOOST, ticksUntilNextItem, 128, true, false));
+		this.addSpawnAttributeModifier(EntityAttributes.MOVEMENT_SPEED, new EntityAttributeModifier(FREEZE_ID, -1, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
+		this.addSpawnAttributeModifier(EntityAttributes.JUMP_STRENGTH, new EntityAttributeModifier(FREEZE_ID, -1, EntityAttributeModifier.Operation.ADD_MULTIPLIED_TOTAL));
 	}
 
 	public void tick(ServerWorld world, ItemSpawnStrategy strategy, int ticksUntilNextItem, boolean beforeFirstItem) {
-		if (beforeFirstItem && ticksUntilNextItem % 5 == 0) {
+		if (!beforeFirstItem) {
+			this.clearSpawnAttributeModifiers();
+		} else if (ticksUntilNextItem % 5 == 0) {
 			this.teleportToPillar(world, false);
 		}
 
@@ -98,18 +110,35 @@ public class PlayerEntry {
 		}
 	}
 
-	private void teleportToPillar(ServerWorld world, boolean rotate) {
-		this.alivePlayer.setVelocity(Vec3d.ZERO);
-		this.alivePlayer.networkHandler.sendPacket(new EntityVelocityUpdateS2CPacket(this.alivePlayer));
-
+	private void teleportToPillar(ServerWorld world, boolean initial) {
 		this.alivePlayer.fallDistance = 0;
 
-		if (rotate) {
-			this.alivePlayer.teleport(world, this.pillarPos.getX(), this.pillarPos.getY(), this.pillarPos.getZ(), this.pillarYaw, 0);
+		if (initial) {
+			this.alivePlayer.setVelocity(Vec3d.ZERO);
+			this.alivePlayer.networkHandler.sendPacket(new EntityVelocityUpdateS2CPacket(this.alivePlayer));
+
+			this.alivePlayer.teleport(world, this.pillarPos.getX(), this.pillarPos.getY(), this.pillarPos.getZ(), Set.of(), this.pillarYaw, 0, true);
 		} else {
 			Set<PositionFlag> flags = ImmutableSet.of(PositionFlag.X_ROT, PositionFlag.Y_ROT);
-			this.alivePlayer.networkHandler.requestTeleport(this.pillarPos.getX(), this.pillarPos.getY(), this.pillarPos.getZ(), this.alivePlayer.getYaw(), this.alivePlayer.getPitch(), flags);
+			this.alivePlayer.networkHandler.requestTeleport(new PlayerPosition(this.pillarPos, this.alivePlayer.getVelocity(), 0, 0), flags);
 		}
+	}
+
+	private void addSpawnAttributeModifier(RegistryEntry<EntityAttribute> attribute, EntityAttributeModifier modifier) {
+		if (!modifier.idMatches(FREEZE_ID)) {
+			throw new IllegalArgumentException("Spawn attribute modifier has incorrect ID " + modifier.id());
+		}
+
+		this.alivePlayer.getAttributeInstance(attribute).addTemporaryModifier(modifier);
+		this.attributes.add(attribute);
+	}
+
+	private void clearSpawnAttributeModifiers() {
+		for (RegistryEntry<EntityAttribute> attribute : this.attributes) {
+			this.alivePlayer.getAttributeInstance(attribute).removeModifier(FREEZE_ID);
+		}
+
+		this.attributes.clear();
 	}
 
 	private boolean isPillarApplicable(ItemSpawnStrategy strategy) {
@@ -134,11 +163,12 @@ public class PlayerEntry {
 		InventoryUtil.clear(this.alivePlayer);
 
 		// https://bugs.mojang.com/browse/MC-99785
-		Box leashBox = Box.of(this.alivePlayer.getPos(), 7, 7, 7);
-		List<MobEntity> leashEntities = this.alivePlayer.getWorld().getNonSpectatingEntities(MobEntity.class, leashBox);
+		List<Leashable> leashEntities = LeadItem.collectLeashablesAround(this.alivePlayer.getWorld(), this.alivePlayer.getBlockPos(), entity -> {
+			return entity.getLeashHolder() == this.alivePlayer;
+		});
 
-		for (MobEntity entity : leashEntities) {
-			if (entity.isLeashed() && entity.getHoldingEntity() == this.alivePlayer) {
+		for (Leashable entity : leashEntities) {
+			if (entity.isLeashed() && entity.getLeashHolder() == this.alivePlayer) {
 				entity.detachLeash(true, true);
 			}
 		}

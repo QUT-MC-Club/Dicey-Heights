@@ -3,6 +3,7 @@ package io.github.haykam821.diceyheights.game;
 import java.util.Optional;
 
 import com.mojang.serialization.Codec;
+import com.mojang.serialization.MapCodec;
 import com.mojang.serialization.codecs.RecordCodecBuilder;
 
 import io.github.haykam821.diceyheights.game.map.DiceyHeightsMapConfig;
@@ -13,11 +14,11 @@ import net.minecraft.registry.RegistryKeys;
 import net.minecraft.registry.entry.RegistryEntryList;
 import net.minecraft.util.math.intprovider.ConstantIntProvider;
 import net.minecraft.util.math.intprovider.IntProvider;
-import xyz.nucleoid.plasmid.game.common.config.PlayerConfig;
-import xyz.nucleoid.plasmid.game.common.team.GameTeamList;
+import xyz.nucleoid.plasmid.api.game.common.config.WaitingLobbyConfig;
+import xyz.nucleoid.plasmid.api.game.common.team.GameTeamList;
 
 public record DiceyHeightsConfig(
-	PlayerConfig playerConfig,
+	WaitingLobbyConfig playerConfig,
 	DiceyHeightsMapConfig mapConfig,
 	Optional<GameTeamList> teams,
 	Optional<IntProvider> ticksUntilFirstItem,
@@ -30,9 +31,9 @@ public record DiceyHeightsConfig(
 	boolean separate,
 	IntProvider ticksUntilClose
 ) {
-	public static final Codec<DiceyHeightsConfig> CODEC = RecordCodecBuilder.create(instance -> {
+	public static final MapCodec<DiceyHeightsConfig> CODEC = RecordCodecBuilder.mapCodec(instance -> {
 		return instance.group(
-			PlayerConfig.CODEC.fieldOf("players").forGetter(DiceyHeightsConfig::playerConfig),
+			WaitingLobbyConfig.CODEC.fieldOf("players").forGetter(DiceyHeightsConfig::playerConfig),
 			DiceyHeightsMapConfig.CODEC.optionalFieldOf("map", DiceyHeightsMapConfig.DEFAULT).forGetter(DiceyHeightsConfig::mapConfig),
 			GameTeamList.CODEC.optionalFieldOf("teams").forGetter(DiceyHeightsConfig::teams),
 			IntProvider.POSITIVE_CODEC.optionalFieldOf("ticks_until_first_item").forGetter(DiceyHeightsConfig::ticksUntilFirstItem),

@@ -4,38 +4,27 @@
 	"teams": [
 		{
 			"key": "red",
-			"name": {
-				"translate": "color.minecraft.red"
-			},
 			"color": "red",
 			"collision": "pushOtherTeams"
 		},
 		{
 			"key": "green",
-			"name": {
-				"translate": "color.minecraft.green"
-			},
 			"color": "green",
 			"collision": "pushOtherTeams"
 		},
 		{
 			"key": "blue",
-			"name": {
-				"translate": "color.minecraft.blue"
-			},
 			"color": "blue",
 			"collision": "pushOtherTeams"
 		},
 		{
 			"key": "yellow",
-			"name": {
-				"translate": "color.minecraft.yellow"
-			},
 			"color": "yellow",
 			"collision": "pushOtherTeams"
 		}
 	],
 	"item_spawn_strategy": "at_pillar_when_alive",
+	"separate": true,
 	"item_count": 16,
 	"ticks_until_first_item": 60,
 	"ticks_until_next_item": 120,

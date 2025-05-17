@@ -3,8 +3,8 @@ package io.github.haykam821.diceyheights.game.player;
 import net.minecraft.block.BlockState;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
-import xyz.nucleoid.plasmid.game.common.team.GameTeam;
-import xyz.nucleoid.plasmid.util.ColoredBlocks;
+import xyz.nucleoid.plasmid.api.game.common.team.GameTeam;
+import xyz.nucleoid.plasmid.api.util.ColoredBlocks;
 
 public class TeamEntry {
 	private final GameTeam team;

@@ -4,33 +4,21 @@
 	"teams": [
 		{
 			"key": "red",
-			"name": {
-				"translate": "color.minecraft.red"
-			},
 			"color": "red",
 			"collision": "pushOtherTeams"
 		},
 		{
 			"key": "green",
-			"name": {
-				"translate": "color.minecraft.green"
-			},
 			"color": "green",
 			"collision": "pushOtherTeams"
 		},
 		{
 			"key": "blue",
-			"name": {
-				"translate": "color.minecraft.blue"
-			},
 			"color": "blue",
 			"collision": "pushOtherTeams"
 		},
 		{
 			"key": "yellow",
-			"name": {
-				"translate": "color.minecraft.yellow"
-			},
 			"color": "yellow",
 			"collision": "pushOtherTeams"
 		}
