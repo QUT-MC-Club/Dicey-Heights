@@ -98,7 +98,7 @@ public class DiceyHeightsMap {
 	}
 
 	public void teleportToWaitingSpawn(ServerPlayerEntity player) {
-		player.teleport(player.getServerWorld(), this.getWaitingSpawnPos().getX(), this.getWaitingSpawnPos().getY(), this.getWaitingSpawnPos().getZ(), Set.of(), 0, 0, true);
+		player.teleport(player.getWorld(), this.getWaitingSpawnPos().getX(), this.getWaitingSpawnPos().getY(), this.getWaitingSpawnPos().getZ(), Set.of(), 0, 0, true);
 	}
 
 	public boolean isOutOfBounds(ServerPlayerEntity player) {
