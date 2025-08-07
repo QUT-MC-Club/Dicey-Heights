@@ -18,7 +18,6 @@ import net.minecraft.entity.attribute.EntityAttributeModifier;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.player.PlayerPosition;
 import net.minecraft.item.ItemStack;
-import net.minecraft.item.LeadItem;
 import net.minecraft.network.packet.s2c.play.EntityVelocityUpdateS2CPacket;
 import net.minecraft.network.packet.s2c.play.PositionFlag;
 import net.minecraft.particle.BlockStateParticleEffect;
@@ -165,9 +164,7 @@ public class PlayerEntry {
 		InventoryUtil.clear(this.alivePlayer);
 
 		// https://bugs.mojang.com/browse/MC-99785
-		List<Leashable> leashEntities = LeadItem.collectLeashablesAround(this.alivePlayer.getWorld(), this.alivePlayer.getBlockPos(), entity -> {
-			return entity.getLeashHolder() == this.alivePlayer;
-		});
+		List<Leashable> leashEntities = Leashable.collectLeashablesHeldBy(this.alivePlayer);
 
 		for (Leashable entity : leashEntities) {
 			if (entity.isLeashed() && entity.getLeashHolder() == this.alivePlayer) {
