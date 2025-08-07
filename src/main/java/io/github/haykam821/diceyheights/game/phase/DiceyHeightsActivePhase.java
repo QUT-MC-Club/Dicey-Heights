@@ -195,7 +195,7 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 			activity.listen(GameActivityEvents.ENABLE, phase);
 			activity.listen(GameActivityEvents.TICK, phase);
 			activity.listen(GamePlayerEvents.ACCEPT, phase);
-			activity.listen(GamePlayerEvents.OFFER, JoinOffer::accept);
+			activity.listen(GamePlayerEvents.OFFER, JoinOffer::acceptSpectators);
 			activity.listen(GamePlayerEvents.REMOVE, phase);
 			activity.listen(PlayerDeathEvent.EVENT, phase);
 		});
@@ -215,6 +215,11 @@ public class DiceyHeightsActivePhase implements GameActivityEvents.Enable, GameA
 
 		for (PlayerEntry player : this.players) {
 			player.spawn(this.map, this.world, this.random, this.ticksUntilNextItem);
+		}
+
+		for (ServerPlayerEntity player : this.gameSpace.getPlayers().spectators()) {
+			this.map.teleportToWaitingSpawn(player);
+			player.changeGameMode(GameMode.SPECTATOR);
 		}
 	}
 

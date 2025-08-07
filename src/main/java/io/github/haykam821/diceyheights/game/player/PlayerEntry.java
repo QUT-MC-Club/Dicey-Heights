@@ -86,10 +86,12 @@ public class PlayerEntry {
 	}
 
 	public void tick(ServerWorld world, ItemSpawnStrategy strategy, int ticksUntilNextItem, boolean beforeFirstItem) {
-		if (!beforeFirstItem) {
-			this.clearSpawnAttributeModifiers();
-		} else if (ticksUntilNextItem % 5 == 0) {
-			this.teleportToPillar(world, false);
+		if (this.alivePlayer != null) {
+			if (!beforeFirstItem) {
+				this.clearSpawnAttributeModifiers();
+			} else if (ticksUntilNextItem % 5 == 0) {
+				this.teleportToPillar(world, false);
+			}
 		}
 
 		if (this.isPillarApplicable(strategy)) {
@@ -169,7 +171,7 @@ public class PlayerEntry {
 
 		for (Leashable entity : leashEntities) {
 			if (entity.isLeashed() && entity.getLeashHolder() == this.alivePlayer) {
-				entity.detachLeash(true, true);
+				entity.detachLeash();
 			}
 		}
 	}
